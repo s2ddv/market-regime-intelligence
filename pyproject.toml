@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "market-regime-intelligence"
+version = "0.1.0"
+description = "Reproducible market regime and risk forecasting research"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<3",
+  "scipy>=1.14,<2",
+  "scikit-learn>=1.5,<2",
+  "pyarrow>=17,<24",
+  "PyYAML>=6,<7",
+  "exchange-calendars>=4.5,<5",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.8,<1", "mypy>=1.13,<2", "pandas-stubs>=2.2,<3", "types-PyYAML>=6,<7"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mri"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+files = ["src"]
+strict = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "exchange_calendars"
+ignore_missing_imports = true

@@ -1,0 +1,6 @@
+return: log_adjusted_close
+realized_volatility_sessions: 20
+realized_volatility_annualization: 252
+momentum_sessions: 20
+drawdown_sessions: 60
+random_seed: 20261116
