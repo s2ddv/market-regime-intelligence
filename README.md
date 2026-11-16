@@ -1,8 +1,8 @@
 # Market Regime Intelligence
 
-Research foundation for testing whether causally filtered market-regime probabilities improve SPY risk forecasts. Current scope: MRI-001 research protocol, MRI-002 Python foundation, MRI-003 historical data pipeline, and MRI-004 deterministic session features and forward targets. No forecasting model or empirical performance result exists yet.
+Research foundation for testing whether causally filtered market-regime probabilities improve SPY risk forecasts. Current scope: MRI-001 research protocol, MRI-002 Python foundation, MRI-003 historical data pipeline, MRI-004 deterministic session features and forward targets, and MRI-005 synthetic Gaussian HMM fitting and causal filtering. No empirical performance result exists yet.
 
-See [protocol](docs/research_protocol.md), [architecture](docs/architecture.md), [data contract](docs/data_contract.md), [feature contract](docs/mri004_feature_contract.md), and [source-readiness decision](docs/source_readiness.md).
+See [protocol](docs/research_protocol.md), [architecture](docs/architecture.md), [data contract](docs/data_contract.md), [feature contract](docs/mri004_feature_contract.md), [HMM contract](docs/mri005_hmm_contract.md), and [source-readiness decision](docs/source_readiness.md).
 
 ## Setup
 
@@ -15,3 +15,7 @@ Requires Python 3.12. Install `uv`, then run `uv sync --locked --all-groups` and
 ## Session features and targets
 
 `mri.features.build_features` computes log return, trailing volatility, momentum, and drawdown from a validated canonical SPY table. `mri.features.build_forward_targets` creates a separate table of 5- and 20-session forward variance, volatility, and label maturity dates. Load the frozen window settings with `mri.features.load_feature_spec(Path("configs/features.yaml"))`. These functions have been checked on synthetic paths only; the repository does not yet contain an authorized real SPY snapshot.
+
+## Gaussian HMM
+
+`mri.models.fit_gaussian_hmm(training_features, HMMConfig(...))` fits only the supplied, chronologically complete training prefix using log return and 20-session realized volatility. It records the last training session and frozen parameters. `mri.models.filter_new_sessions(model, later_features)` produces forward-filtered state probabilities for consecutive XNYS sessions strictly after that cutoff. This is a synthetic software demonstration; a caller must enforce the train/validation boundaries in MRI-006, and a real source audit remains necessary before market claims.
