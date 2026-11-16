@@ -2,7 +2,7 @@
 
 Research foundation for testing whether causally filtered market-regime probabilities improve SPY risk forecasts. Current scope: MRI-001 research protocol, MRI-002 Python foundation, MRI-003 historical data pipeline. No forecasting model or empirical performance result exists yet.
 
-See [protocol](docs/research_protocol.md), [architecture](docs/architecture.md), and [data contract](docs/data_contract.md).
+See [protocol](docs/research_protocol.md), [architecture](docs/architecture.md), [data contract](docs/data_contract.md), and [source-readiness decision](docs/source_readiness.md).
 
 ## Setup
 
