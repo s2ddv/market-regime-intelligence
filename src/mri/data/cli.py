@@ -19,6 +19,7 @@ def latest_completed_session(now: datetime | None = None) -> date:
     instant = now or datetime.now(UTC)
     if instant.tzinfo is None or instant.utcoffset() is None:
         raise ValueError("now must be timezone-aware")
+    instant = instant.astimezone(UTC)
     calendar = xcals.get_calendar("XNYS")
     session = calendar.date_to_session(instant.date(), direction="previous")
     if calendar.session_close(session).to_pydatetime() > instant:

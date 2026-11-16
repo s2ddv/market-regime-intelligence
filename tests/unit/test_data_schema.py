@@ -80,3 +80,20 @@ def test_latest_completed_session_uses_exchange_close():
 
     assert latest_completed_session(datetime(2024, 1, 3, 20, tzinfo=UTC)) == date(2024, 1, 2)
     assert latest_completed_session(datetime(2024, 1, 3, 22, tzinfo=UTC)) == date(2024, 1, 3)
+
+
+def test_latest_completed_session_is_timezone_invariant():
+    from datetime import UTC, datetime, timedelta, timezone
+
+    from mri.data.cli import latest_completed_session
+
+    instant = datetime(2024, 1, 3, 15, tzinfo=UTC)
+    shifted = instant.astimezone(timezone(timedelta(hours=14)))
+    assert latest_completed_session(instant) == date(2024, 1, 2)
+    assert latest_completed_session(shifted) == date(2024, 1, 2)
+
+
+def test_reject_extra_csv_field():
+    source = response(b"Date,Open,High,Low,Close,Volume\nJUNK,2024-01-02,100,102,99,101,1000\n")
+    with pytest.raises(DataValidationError):
+        parse_stooq(source)

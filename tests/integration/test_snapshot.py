@@ -33,3 +33,18 @@ def test_corrupt_snapshot_rejected(tmp_path):
     paths.raw.write_bytes(b"tampered")
     with pytest.raises(DataValidationError, match="hash mismatch"):
         reload_snapshot(paths.manifest)
+
+
+def test_2005_requested_start_can_be_holiday(tmp_path):
+    source = SourceResponse(
+        b"Date,Open,High,Low,Close,Volume\n2005-01-03,100,102,99,101,1000\n",
+        "fixture:2005",
+        "stooq",
+        "SPY",
+        date(2005, 1, 1),
+        date(2005, 1, 3),
+        "adjusted_ohlc",
+        False,
+    )
+    paths = persist(source, tmp_path)
+    assert reload_snapshot(paths.manifest)["date"].tolist() == [date(2005, 1, 3)]

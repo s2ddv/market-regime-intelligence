@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date
-from io import BytesIO
+import csv
+from datetime import date, timedelta
+from io import BytesIO, StringIO
 
 import exchange_calendars as xcals
 import numpy as np
@@ -24,8 +25,12 @@ def parse_stooq(response: SourceResponse) -> pd.DataFrame:
     if response.provider != "stooq" or response.price_basis != "adjusted_ohlc":
         raise DataValidationError("Unsupported provider or price basis")
     try:
-        raw = pd.read_csv(BytesIO(response.content))
-    except (ValueError, UnicodeError, pd.errors.ParserError) as exc:
+        rows = csv.reader(StringIO(response.content.decode("utf-8-sig")), strict=True)
+        header = next(rows)
+        if header != CSV_COLUMNS or any(len(row) != len(CSV_COLUMNS) for row in rows):
+            raise DataValidationError(f"Expected exactly {len(CSV_COLUMNS)} CSV fields per row")
+        raw = pd.read_csv(BytesIO(response.content), index_col=False)
+    except (ValueError, UnicodeError, csv.Error, StopIteration, pd.errors.ParserError) as exc:
         raise DataValidationError("Invalid CSV") from exc
     if list(raw.columns) != CSV_COLUMNS:
         raise DataValidationError(f"Expected CSV columns {CSV_COLUMNS}")
@@ -78,7 +83,11 @@ def validate_daily(frame: pd.DataFrame, response: SourceResponse) -> None:
         raise DataValidationError("Invalid OHLC relationship")
     if response.price_basis == "adjusted_ohlc" and not np.array_equal(values[:, 4], values[:, 3]):
         raise DataValidationError("Adjusted OHLC requires adjusted_close = close")
-    calendar = xcals.get_calendar("XNYS")
+    # Explicit bounds make old snapshots reloadable when the library's rolling
+    # default window has moved forward. Padding covers non-session request edges.
+    calendar = xcals.get_calendar(
+        "XNYS", start=response.start - timedelta(days=14), end=response.end + timedelta(days=14)
+    )
     try:
         expected = {
             stamp.date() for stamp in calendar.sessions_in_range(response.start, response.end)
