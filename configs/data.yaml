@@ -1,9 +1,6 @@
 symbol: SPY
 provider: stooq
-provider_symbol: spy.us
 calendar: XNYS
 start: '2005-01-01'
 price_basis: adjusted_ohlc
 adjustment_verified: false
-raw_dir: data/raw
-processed_dir: data/processed
