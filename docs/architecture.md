@@ -1,0 +1,9 @@
+# Architecture (MRI-001)
+
+Data flow: provider adapter -> immutable raw snapshot and metadata -> parse into canonical daily schema -> calendar/price/adjustment validation -> content-addressed Parquet plus manifest -> causal features -> fold-specific models -> forecasts -> aligned scores -> report. MRI-001 through MRI-003 end at the validated dataset.
+
+`mri.data` owns provider I/O, parsing, validation, calendar checks and persistence. Provider adapters return source bytes plus request metadata; downstream code receives canonical typed frames, never provider-specific columns. `mri.features` will own causal, unit-tested transforms; `mri.models` fit/filter state estimators and baseline volatility models; `mri.forecasting` maps information at an origin to horizon-specific variance and event probabilities; `mri.evaluation` owns split/purge, metrics and dependence-aware uncertainty; `mri.experiments` records frozen configs, seeds, artifacts and attempted variants; `mri.reporting` renders auditable reports. Empty packages mark these future boundaries without model implementations.
+
+Planned interfaces: a model `fit(train_features, train_targets, config, seed)` returns fitted state and diagnostics; `predict_as_of(origin_features, horizon)` returns positive daily variance and/or calibrated event probability plus provenance. A regime model must expose `filter_as_of` based on observations no later than the origin. Splitters supply explicit train and prediction session indices, label maturity cutoff and purge audit. These are design contracts, not implemented APIs.
+
+Data fetch is an explicit command. Offline loading uses saved snapshots; no import triggers network I/O. Snapshot names and manifests are content-addressed, and writes are exclusive. Dataset files, snapshots and reports are ignored by Git.
