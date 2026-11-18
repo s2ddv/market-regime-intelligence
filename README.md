@@ -1,8 +1,8 @@
 # Market Regime Intelligence
 
-Research foundation for testing whether causally filtered market-regime probabilities improve SPY risk forecasts. Current scope: MRI-001 research protocol, MRI-002 Python foundation, MRI-003 historical data pipeline, MRI-004 deterministic session features and forward targets, MRI-005 synthetic Gaussian HMM fitting and causal filtering, and MRI-006 walk-forward planning and target access gates. No empirical performance result exists yet.
+Research foundation for testing whether causally filtered market-regime probabilities improve SPY risk forecasts. Current scope: MRI-001 research protocol, MRI-002 Python foundation, MRI-003 historical data pipeline, MRI-004 deterministic session features and forward targets, MRI-005 synthetic Gaussian HMM fitting and causal filtering, MRI-006 walk-forward planning and target access gates, and MRI-007 synthetic experiment provenance. No empirical performance result exists yet.
 
-See [protocol](docs/research_protocol.md), [architecture](docs/architecture.md), [data contract](docs/data_contract.md), [feature contract](docs/mri004_feature_contract.md), [HMM contract](docs/mri005_hmm_contract.md), [walk-forward contract](docs/mri006_walk_forward_contract.md), and [source-readiness decision](docs/source_readiness.md).
+See [protocol](docs/research_protocol.md), [architecture](docs/architecture.md), [data contract](docs/data_contract.md), [feature contract](docs/mri004_feature_contract.md), [HMM contract](docs/mri005_hmm_contract.md), [walk-forward contract](docs/mri006_walk_forward_contract.md), [experiment record contract](docs/mri007_experiment_contract.md), and [source-readiness decision](docs/source_readiness.md).
 
 ## Setup
 
@@ -23,3 +23,7 @@ Requires Python 3.12. Install `uv`, then run `uv sync --locked --all-groups` and
 ## Walk-forward planning
 
 `mri.evaluation.build_walk_forward_plan(features, maturity_only, config)` creates monthly expanding-prefix blocks for validation and final periods. Its input contains only feature dates and target maturity dates; forward values are accessed separately through `training_target_rows` and `training_event_threshold`, which expose fully matured labels from earlier phases. The plan supplies exact fit and prediction indices for HMM calls. It does not train forecasting mappings, score predictions, open final outcomes, or validate historical data publication timing. Tests exercise the boundary rules and one synthetic HMM refit.
+
+## Synthetic experiment records
+
+`mri.experiments.freeze_run` verifies a fixture snapshot and binds its manifest, exact fold plan, configuration, package lock and code state to an exclusive run record. `record_attempt` records a planned variant under that run before execution. The example configuration is in `configs/experiments/mri007_synthetic.yaml`. This infrastructure does not run or score models; the full research preregistration and real-source audit remain pending.

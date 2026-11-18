@@ -1,0 +1,15 @@
+# MRI-007 — frozen synthetic experiment records
+
+Status: contract fixed before implementation, 2026-11-18. This stage records reproducible inputs and attempts; it does not run forecasts, select models, score outcomes, or open the final period.
+
+## Objective and acceptance
+
+Engineering hypothesis: an exclusive, content-addressed run record plus exclusive attempt records can make every synthetic evaluation choice traceable before execution. Baseline: a hand-inspected fixture manifest and a small configuration whose hashes and fold boundaries can be independently checked. Acceptance: reject unverified source bytes, a non-fixture source, malformed or unsupported configuration, dirty-state ambiguity, duplicate run/attempt IDs, and an attempt outside the frozen validation phase. Existing records are never overwritten. Each attempt records the chosen model, horizon, seed, planned fold indices and status; it is a record of a choice, not evidence that a forecast was produced.
+
+## Frozen scope
+
+The registry accepts **synthetic fixture snapshots only** (`source_url` begins `fixture:`) and calls the MRI-003 reload validator before freezing. It hashes exact bytes of the config, source manifest and `uv.lock`, records the source/processed hashes from the verified manifest, the exact fold plan hash, Git HEAD, tracked diff hash and dirty status, Python/platform and package versions. The configuration fixes phase boundaries, horizons, minimum usable training sessions, monthly retraining, event quantile, candidate names and seed. The checked-in example uses the default 5/20-session plan and 0.90 quantile; test configs use shorter synthetic periods. No real source or final-phase run is accepted here. A fixture URL is metadata supplied by the snapshot creator, not independent proof of source identity. A hash identifies bytes, not rights, publication timing, economic validity or a successful model fit.
+
+Records live under ignored `reports/runs/<run_id>/`. A run is created only when its folder does not exist. `attempts/<attempt_id>.json` is opened exclusively and includes the run ID; retries require a distinct ID and preserve previous attempts. The caller must create the attempt before evaluating a variant, then write immutable outputs separately in a later stage. Status `planned` means only a registered intention. A dirty worktree is recorded but not rejected; untracked file contents are not hashed, so such a record cannot by itself reproduce code from untracked files. This configuration does not freeze the complete hyperparameter grid, bootstrap specification, primary comparisons or publication-time audit required for an actual evaluation. A future runner must bind each prediction to the source manifest, config, code revision, exact fold, model parameters and training cutoff, and must keep validation and final outcomes sealed until their protocol gates are satisfied.
+
+This follows the local [research protocol](research_protocol.md) and [MRI-006 fold contract](mri006_walk_forward_contract.md). No new statistical model or literature result is claimed in MRI-007.

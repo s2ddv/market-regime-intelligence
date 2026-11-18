@@ -1,0 +1,14 @@
+schema_version: 1
+name: mri007-synthetic-provenance
+mode: synthetic
+phase: validation
+seed: 20261118
+development_end: '2015-12-31'
+validation_end: '2020-12-31'
+horizons: [5, 20]
+min_training_sessions: 252
+event_quantile: 0.90
+retrain: monthly
+model_candidates:
+  - historical-20
+  - hmm-2
