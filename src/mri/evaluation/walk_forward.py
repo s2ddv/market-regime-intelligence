@@ -9,6 +9,9 @@ import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
 
+from mri.features._validation import observation_values
+from mri.features.core import FeatureError
+
 
 class WalkForwardError(ValueError):
     """A temporal boundary, session table or label gate is invalid."""
@@ -140,14 +143,22 @@ def build_walk_forward_plan(
     if final_start is not None and final_start <= validation_start:
         raise WalkForwardError("Validation period has no observed sessions")
     columns = ("log_return", "realized_volatility_20")
-    if any(column not in features for column in columns):
-        raise WalkForwardError("Missing initial HMM features")
     try:
-        prediction_values = features.iloc[validation_start:][list(columns)].to_numpy(dtype=float)
-    except (TypeError, ValueError) as exc:
-        raise WalkForwardError("Prediction features must be numeric") from exc
-    if not np.isfinite(prediction_values).all() or (prediction_values[:, 1] < 0).any():
-        raise WalkForwardError("Prediction origins require complete finite features")
+        _, training_values = observation_values(
+            features.iloc[:validation_start], columns, allow_warmup=True
+        )
+    except FeatureError as exc:
+        raise WalkForwardError(f"Invalid development features: {exc}") from exc
+    if len(training_values) < settings.min_training_sessions:
+        raise WalkForwardError("No validation period or insufficient development sessions")
+    # The first valid prefix establishes the minimum. Every later prefix only
+    # adds fully observed rows, so readiness holds for all expanding folds.
+    try:
+        observation_values(features.iloc[validation_start:], columns, allow_warmup=False)
+    except FeatureError as exc:
+        raise WalkForwardError(
+            f"Prediction origins require complete finite features: {exc}"
+        ) from exc
 
     folds: list[WalkForwardFold] = []
     start = validation_start

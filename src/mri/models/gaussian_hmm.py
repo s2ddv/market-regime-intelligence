@@ -11,6 +11,9 @@ import pandas as pd
 from numpy.typing import NDArray
 from scipy.special import logsumexp  # type: ignore[import-untyped]
 
+from mri.features._validation import observation_values
+from mri.features.core import FeatureError
+
 
 class HMMError(ValueError):
     """Invalid data, configuration, or failed numerical model fit."""
@@ -114,18 +117,10 @@ def _observations(
     if any(left >= right for left, right in zip(dates, dates[1:], strict=False)):
         raise HMMError("Session dates must be strictly increasing")
     try:
-        values = frame.loc[:, list(columns)].to_numpy(dtype=np.float64)
-    except (TypeError, ValueError) as exc:
-        raise HMMError("Observation columns must be numeric") from exc
-    if allow_warmup:
-        ready = np.flatnonzero(np.isfinite(values).all(axis=1))
-        if len(ready) == 0:
-            raise HMMError("No complete observations after warm-up")
-        first = int(ready[0])
-        dates, values = dates[first:], values[first:]
-    if not np.isfinite(values).all() or (values[:, 1] < 0).any():
-        raise HMMError("Incomplete, non-finite, or negative volatility observations")
-    return dates, values
+        first, values = observation_values(frame, columns, allow_warmup=allow_warmup)
+    except FeatureError as exc:
+        raise HMMError(str(exc)) from exc
+    return dates[first:], values
 
 
 def _require_contiguous_sessions(dates: list[date], start: date | None = None) -> None:
@@ -217,6 +212,26 @@ def _initialize(
     return initial, transition, means, variances
 
 
+def _validate_fit_state(
+    gamma: NDArray[np.float64], likelihood: float, previous: float, minimum: float
+) -> NDArray[np.float64]:
+    """Gate the current parameter set before convergence, updating, or return."""
+    if not np.isfinite(likelihood):
+        raise HMMError("Non-finite training likelihood")
+    if likelihood < previous - 1e-6:
+        raise HMMError("Training likelihood decreased beyond numerical tolerance")
+    if (
+        not np.isfinite(gamma).all()
+        or (gamma < 0).any()
+        or not np.allclose(gamma.sum(axis=1), 1.0, atol=1e-10, rtol=1e-10)
+    ):
+        raise HMMError("Invalid training state probabilities")
+    occupancy = gamma.sum(axis=0)
+    if (occupancy < minimum).any():
+        raise HMMError("A state has insufficient training occupancy")
+    return occupancy
+
+
 def _fit_start(
     observations: NDArray[np.float64], config: HMMConfig, rng: np.random.Generator
 ) -> tuple[
@@ -231,22 +246,14 @@ def _fit_start(
 ]:
     initial, transition, means, variances = _initialize(observations, config.n_states, rng)
     previous = -np.inf
-    converged = False
     for iteration in range(1, config.max_iter + 1):
-        gamma, transitions, likelihood, _ = _expectation(
+        gamma, transitions, likelihood, last = _expectation(
             observations, initial, transition, means, variances
         )
-        if not np.isfinite(likelihood):
-            raise HMMError("Non-finite training likelihood")
-        if iteration > 1 and likelihood < previous - 1e-6:
-            raise HMMError("Training likelihood decreased beyond numerical tolerance")
+        occupancy = _validate_fit_state(gamma, likelihood, previous, config.min_occupancy)
         if iteration > 1 and likelihood - previous <= config.tolerance * (1 + abs(previous)):
-            converged = True
-            break
+            return initial, transition, means, variances, last, likelihood, iteration, True
         previous = likelihood
-        occupancy = gamma.sum(axis=0)
-        if (occupancy < config.min_occupancy).any():
-            raise HMMError("A state has insufficient training occupancy")
         initial = np.maximum(gamma[0], 1e-12)
         initial /= initial.sum()
         transition = np.maximum(transitions, 1e-12)
@@ -257,8 +264,9 @@ def _fit_start(
             np.einsum("ts,tsd->sd", gamma, differences**2) / occupancy[:, None],
             config.min_variance,
         )
-    _, _, likelihood, last = _expectation(observations, initial, transition, means, variances)
-    return initial, transition, means, variances, last, likelihood, iteration, converged
+    gamma, _, likelihood, last = _expectation(observations, initial, transition, means, variances)
+    _validate_fit_state(gamma, likelihood, previous, config.min_occupancy)
+    return initial, transition, means, variances, last, likelihood, iteration, False
 
 
 def fit_gaussian_hmm(frame: pd.DataFrame, config: HMMConfig | None = None) -> FittedGaussianHMM:
@@ -289,16 +297,18 @@ def fit_gaussian_hmm(frame: pd.DataFrame, config: HMMConfig | None = None) -> Fi
         | None
     ) = None
     best_start = -1
+    failures: list[str] = []
     for start in range(settings.n_starts):
         rng = np.random.default_rng(int(master.integers(0, 2**32)))
         try:
             result = _fit_start(observations, settings, rng)
-        except HMMError:
+        except HMMError as exc:
+            failures.append(f"start {start}: {exc}")
             continue
         if best is None or result[5] > best[5]:
             best, best_start = result, start
     if best is None:
-        raise HMMError("All seeded HMM fits failed diagnostic gates")
+        raise HMMError("All seeded HMM fits failed diagnostic gates: " + "; ".join(failures))
     initial, transition, means, variances, last, likelihood, iterations, converged = best
     risk_means = means[:, 1] * scale_std[1] + scale_mean[1]
     order = np.lexsort((np.arange(settings.n_states), risk_means))

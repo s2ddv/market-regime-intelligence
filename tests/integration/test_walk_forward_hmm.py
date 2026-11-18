@@ -12,7 +12,8 @@ from mri.models import HMMConfig, filter_new_sessions, fit_gaussian_hmm
 
 
 def test_monthly_plan_binds_hmm_fit_and_filter():
-    calendar = xcals.get_calendar("XNYS", start="2024-01-02", end="2025-04-30")
+    # Include warm-up before the 252 complete training sessions required by the plan.
+    calendar = xcals.get_calendar("XNYS", start="2023-11-01", end="2025-04-30")
     sessions = [stamp.date() for stamp in calendar.sessions]
     rng = np.random.default_rng(606)
     shocks = rng.normal(0, np.where(np.arange(len(sessions)) % 90 < 45, 0.006, 0.018))
